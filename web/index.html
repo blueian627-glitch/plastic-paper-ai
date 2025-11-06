@@ -1,10 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Material Classifier</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* 簡單放這裡避免樣式缺漏 */
+    body{font-family:sans-serif;text-align:center;margin-top:20px;background:#f7f7f7}
+    video{width:90%;max-width:400px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.2)}
+    button{margin-top:15px;padding:10px 20px;font-size:1.1em;border:none;background:#0078d4;color:#fff;border-radius:5px}
+    p{font-size:1.1em}
+    #barWrap{width:90%;max-width:400px;height:10px;background:#eee;margin:8px auto;border-radius:5px;overflow:hidden}
+    #bar{height:100%;width:0% ;background:#4CAF50;transition:width .3s}
+  </style>
 </head>
 <body>
   <h1>Material Detector</h1>
@@ -12,16 +21,13 @@
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" width="96" height="96" style="display:none;"></canvas>
 
-  <div style="margin: 12px 0;">
-    <label>Threshold: <span id="th-val">127</span></label><br/>
-    <input id="th" type="range" min="0" max="255" value="127" style="width: 90%; max-width: 400px;">
-  </div>
-
   <button id="scan">Start Scanning</button>
 
   <p id="result">Result: --</p>
+  <div id="barWrap"><div id="bar"></div></div>
   <p id="debug">Avg Brightness: --</p>
 
+  <!-- 先載入 WASM，再載入主程式 -->
   <script src="classify.js"></script>
   <script src="app.js"></script>
 </body>
