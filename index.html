@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material Classifier</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>Material Detector</h1>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" width="96" height="96" style="display:none;"></canvas>
+
+  <div style="margin: 12px 0;">
+    <label>Threshold: <span id="th-val">127</span></label><br/>
+    <input id="th" type="range" min="0" max="255" value="127" style="width: 90%; max-width: 400px;">
+  </div>
+
+  <button id="scan">Start Scanning</button>
+
+  <p id="result">Result: --</p>
+  <p id="debug">Avg Brightness: --</p>
+
+  <script src="classify.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
