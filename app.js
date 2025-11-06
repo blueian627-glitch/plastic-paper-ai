@@ -1,11 +1,11 @@
-// D:\恩\小論文\模型\web\app.js
-// 需要：編譯時 -s MODULARIZE=1 -s EXPORT_NAME=createModule
+// 需要用 emcc 編譯時加：-s MODULARIZE=1 -s EXPORT_NAME=createModule
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");   // 尺寸=模型輸入
+const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const resultText = document.getElementById("result");
 const scanBtn = document.getElementById("scan");
-const debugText = document.getElementById("debug"); // 可自行在 index.html 加一行 <p id="debug"></p>
+const debugText = document.getElementById("debug");
+const bar = document.getElementById("bar");
 
 let moduleInstance = null;
 let classifyImage = null;
@@ -15,32 +15,22 @@ let setInputShape = null;
 let scanning = false;
 let intervalId = null;
 
-// === 你的模型輸入大小（要跟 C++ 初始值一致，或用 set_input_shape 設）===
-const MODEL_W = 96;
-const MODEL_H = 96;
-const MODEL_CH = 3;
+const MODEL_W = 96, MODEL_H = 96, MODEL_CH = 3;
 
 async function initWasm() {
   moduleInstance = await createModule();
-  // 包裝 C 函式
   classifyImage = moduleInstance.cwrap("classify_image", "number", ["number","number","number","number"]);
   getLastScore  = moduleInstance.cwrap("get_last_score", "number", []);
   setInputShape = moduleInstance.cwrap("set_input_shape", null, ["number","number","number"]);
-  // 同步 C++ 的輸入尺寸（如果你在 C++ 改過）
   setInputShape(MODEL_W, MODEL_H, MODEL_CH);
 }
 
 async function initCamera() {
-  const constraints = {
-    video: {
-      facingMode: { ideal: "environment" },
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    },
-    audio: false
-  };
   try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
     video.srcObject = stream;
     await video.play();
   } catch (err) {
@@ -49,56 +39,40 @@ async function initCamera() {
   }
 }
 
-// 把當前影格餵進 WASM 模型
 function singleScan() {
   if (!video || video.readyState < 2) return;
 
-  // 1) 縮圖到模型尺寸（會覆蓋 canvas）
+  // 將當前影像縮到模型輸入大小
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // 2) 取像素
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const src = imgData.data; // RGBA...
-  // 3) 打包成 RGB (或 Gray) Uint8Array
-  let arr;
-  if (MODEL_CH === 3) {
-    arr = new Uint8Array(MODEL_W * MODEL_H * 3);
-    let j = 0;
-    for (let i = 0; i < src.length; i += 4) {
-      arr[j++] = src[i];     // R
-      arr[j++] = src[i + 1]; // G
-      arr[j++] = src[i + 2]; // B
-      // 忽略 A
-    }
-  } else {
-    arr = new Uint8Array(MODEL_W * MODEL_H);
-    let j = 0;
-    for (let i = 0; i < src.length; i += 4) {
-      // 灰階
-      const gray = Math.round(0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2]);
+  // 取像素並打包成 RGB Uint8Array
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const src = img.data;
+  const arr = new Uint8Array(MODEL_W * MODEL_H * (MODEL_CH === 3 ? 3 : 1));
+
+  let j = 0, sumLuma = 0;
+  for (let i = 0; i < src.length; i += 4) {
+    const r = src[i], g = src[i+1], b = src[i+2];
+    if (MODEL_CH === 3) {
+      arr[j++] = r; arr[j++] = g; arr[j++] = b;
+    } else {
+      const gray = Math.round(0.2126*r + 0.7152*g + 0.0722*b);
       arr[j++] = gray;
     }
+    sumLuma += 0.2126*r + 0.7152*g + 0.0722*b;
   }
+  const avg = sumLuma / (src.length / 4); // 0~255
 
-  // 4) 配置 WASM 記憶體並拷貝
-  const bytes = arr.length;
-  const ptr = moduleInstance._malloc(bytes);
+  const ptr = moduleInstance._malloc(arr.length);
   moduleInstance.HEAPU8.set(arr, ptr);
-
-  // 5) 呼叫 C++ 推論
   const label = classifyImage(ptr, MODEL_W, MODEL_H, MODEL_CH);
   const score = getLastScore();
-
-  // 6) 釋放記憶體
   moduleInstance._free(ptr);
 
-  // 7) 顯示結果（示範：0=Paper, 1=Plastic）
   const text = (label === 1 ? "Plastic" : (label === 0 ? "Paper" : "Invalid"));
-  resultText.textContent = `Result: ${text}  (score=${score.toFixed(3)})`;
-
-  if (debugText) {
-    debugText.textContent = `buffer=${bytes} bytes, label=${label}`;
-  }
+  resultText.textContent = `Result: ${text} (score=${score.toFixed(2)})`;
+  debugText.textContent = `Avg Brightness: ${avg.toFixed(1)}`;
+  bar.style.width = `${Math.round(score*100)}%`;
 }
 
 function toggleAutoScan() {
@@ -125,11 +99,6 @@ document.addEventListener("visibilitychange", () => {
 (async () => {
   await initWasm();
   await initCamera();
-
-  // 確保 canvas 尺寸與模型一致
-  canvas.width  = MODEL_W;
-  canvas.height = MODEL_H;
-
   scanBtn.textContent = "Start Scanning";
   scanBtn.addEventListener("click", toggleAutoScan);
 })();
