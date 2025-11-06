@@ -1,0 +1,4 @@
+﻿body { font-family: sans-serif; text-align: center; margin-top: 20px; background:#f7f7f7; }
+video { width: 90%; max-width: 400px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.2); }
+button { margin-top:15px; padding:10px 20px; font-size:1.1em; border:none; background:#0078d4; color:#fff; border-radius:5px; }
+p { font-size:1.2em; font-weight:bold; }
